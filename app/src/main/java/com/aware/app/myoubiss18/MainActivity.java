@@ -4,20 +4,39 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Intent;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.os.AsyncTask;
 import android.support.v4.content.PermissionChecker;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
 import com.aware.ui.PermissionsHandler;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.internal.bind.DateTypeAdapter;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.net.ssl.HttpsURLConnection;
 
 import eu.darken.myolib.BaseMyo;
 import eu.darken.myolib.Myo;
@@ -32,10 +51,12 @@ import eu.darken.myolib.processor.imu.ImuProcessor;
 public class MainActivity extends AppCompatActivity implements
         BaseMyo.ConnectionListener,
         EmgProcessor.EmgDataListener,
-        ImuProcessor.ImuDataListener{
+        ImuProcessor.ImuDataListener,
+        SensorEventListener {
 
     // UI views
      ToggleButton connectBtn;
+     Button endTrailButton;
      TextView tvCollecting;
      ProgressBar progress;
 
@@ -47,6 +68,18 @@ public class MainActivity extends AppCompatActivity implements
 
     public static final String MYO_TAG = "MYO_TAG";
     public static final String SAMPLE_TAG = "SAMPLE_TAG";
+    public String EXTRA_DATA;
+
+
+    private SensorManager mSensorManager;
+    private Sensor mAccelerometer;
+    private Sensor mGyro;
+
+    private ArrayList<UBISSD> acc = new ArrayList<>();
+    private ArrayList<UBISSD> gyro = new ArrayList<>();
+
+    @Override
+    public void onAccuracyChanged(Sensor arg0, int arg1) { }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,16 +89,165 @@ public class MainActivity extends AppCompatActivity implements
         tvCollecting = findViewById(R.id.tvCollecting);
         progress = findViewById(R.id.progress);
         connectBtn = findViewById(R.id.connectBtn);
+        connectBtn.setVisibility(View.GONE);
+        tvCollecting.setVisibility(View.GONE);
+        endTrailButton=findViewById(R.id.endTrailButton);
+        Intent intent = getIntent();
+        Bundle bd = intent.getExtras();
+        if(bd != null)
+        {
+             EXTRA_DATA = (String) bd.get("EXTRA_DATA");
+
+        }
+
+        mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        mGyro = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+
+
+        Log.d("Walk_the_line","MainActivity");
+        endTrailButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                JsonObject data=new JsonObject();
+                JsonArray acc_data=new JsonArray();
+                JsonArray gyro_data=new JsonArray();
+                for(UBISSD d : acc){
+                    JsonObject tmp = new JsonObject();
+
+                    tmp.addProperty("x",d.x);
+                    tmp.addProperty("y",d.y);
+                    tmp.addProperty("z",d.z);
+                    tmp.addProperty("t",d.t);
+
+                    acc_data.add( tmp);
+                }
+                for(UBISSD d : gyro){
+                    JsonObject tmp = new JsonObject();
+
+                    tmp.addProperty("x",d.x);
+                    tmp.addProperty("y",d.y);
+                    tmp.addProperty("z",d.z);
+                    tmp.addProperty("t",d.t);
+
+                    gyro_data.add( tmp);
+                }
+                data.addProperty("participant",EXTRA_DATA);
+                data.addProperty("acc",acc_data.getAsJsonArray().toString() );
+                data.addProperty("gyro",gyro_data.getAsJsonArray().toString() );
+
+                data.addProperty("trial_end_time",System.currentTimeMillis());
+                acc = new ArrayList<>();
+                gyro = new ArrayList<>();
+                new NetworkCallHandler().execute(data);
+
+            }
+        });
+    }
+    public class NetworkCallHandler extends AsyncTask<JsonObject, Void, Void> {
+        @Override
+        protected void onPostExecute(Void aVoid) {
+            super.onPostExecute(aVoid);
+            finish();
+        }
+
+        @Override
+        protected Void doInBackground(JsonObject... jsonObjects) {
+            URL url;
+            String response = "";
+            try {
+                url = new URL("https://ubiss-206410.appspot.com/entry");
+
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setReadTimeout(15000);
+                conn.setConnectTimeout(15000);
+                conn.setRequestMethod("POST");
+
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setDoInput(true);
+                conn.setDoOutput(true);
+
+
+                OutputStream os = conn.getOutputStream();
+                BufferedWriter writer = new BufferedWriter(
+                        new OutputStreamWriter(os, "UTF-8"));
+
+                JsonObject content=jsonObjects[0];
+                Log.d("Walk_the_Line",content.toString());
+                writer.write(content.toString());
+
+                writer.flush();
+                writer.close();
+                os.close();
+                int responseCode=conn.getResponseCode();
+
+                if (responseCode == HttpsURLConnection.HTTP_OK) {
+                    String line;
+                    BufferedReader br=new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                    while ((line=br.readLine()) != null) {
+                        response+=line;
+                    }
+
+                }
+                else {
+                    response="";
+
+                }
+
+                Log.d("Walk_the_Line",response);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return null;
+
+        }
+    }
+
+    @Override
+    public void onSensorChanged (SensorEvent event) {
+
+        Log.d("Walk_the_line","new sensor event");
+
+        switch (event.sensor.getType()){
+            case Sensor.TYPE_ACCELEROMETER:
+                UBISSD d = new UBISSD();
+                d.x = event.values[0];
+                d.y = event.values[1];
+                d.z = event.values[2];
+                d.t =  System.currentTimeMillis();
+                acc.add(d);
+
+                break;
+
+            case Sensor.TYPE_GYROSCOPE:
+                UBISSD d2 = new UBISSD();
+                d2.x = event.values[0];
+                d2.y = event.values[1];
+                d2.z = event.values[2];
+                d2.t =  System.currentTimeMillis();
+                gyro.add(d2);
+
+                break;
+
+            default:
+                break;
+        }
+
     }
 
     @Override
     protected void onResume() {
+
         super.onResume();
+
+        mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
+        mSensorManager.registerListener(this, mGyro, SensorManager.SENSOR_DELAY_GAME);
 
         // List of required permission
         ArrayList<String> REQUIRED_PERMISSIONS = new ArrayList<>();
         REQUIRED_PERMISSIONS.add(Manifest.permission.ACCESS_FINE_LOCATION);
         REQUIRED_PERMISSIONS.add(Manifest.permission.ACCESS_COARSE_LOCATION);
+
 
         boolean permissions_ok = true;
         for (String p : REQUIRED_PERMISSIONS) {
@@ -77,7 +259,8 @@ public class MainActivity extends AppCompatActivity implements
 
         if (permissions_ok) {
 
-            connectBtn.setOnClickListener(new View.OnClickListener() {
+
+            /*connectBtn.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
 
@@ -106,7 +289,7 @@ public class MainActivity extends AppCompatActivity implements
 
                 }
             });
-
+*/
         } else {
 
             Intent permissions = new Intent(MainActivity.this, PermissionsHandler.class);
@@ -120,7 +303,7 @@ public class MainActivity extends AppCompatActivity implements
     @Override
     protected void onDestroy() {
         super.onDestroy();
-
+        mSensorManager.unregisterListener(this);
         //Removing values
         removeValues();
     }

@@ -35,4 +35,13 @@
         android:layout_centerHorizontal="true"
         android:visibility="invisible"/>
 
+    <Button
+        android:id="@+id/endTrailButton"
+        android:layout_width="153dp"
+        android:layout_height="107dp"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="160dp"
+        android:text="End Trial" />
+
 </RelativeLayout>
