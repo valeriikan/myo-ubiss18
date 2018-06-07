@@ -312,6 +312,9 @@ public class MainActivity extends AppCompatActivity implements
                             tmp.addProperty("emg7",d.emg7);
                             tmp.addProperty("t",d.t);
 
+
+
+
                             myo_emu_data.add( tmp);
                         }
                         data.addProperty("participant",EXTRA_DATA);
