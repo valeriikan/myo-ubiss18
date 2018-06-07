@@ -2,6 +2,8 @@ package com.aware.app.myoubiss18;
 
 import android.Manifest;
 import android.app.Activity;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.hardware.Sensor;
@@ -89,8 +91,7 @@ public class MainActivity extends AppCompatActivity implements
         tvCollecting = findViewById(R.id.tvCollecting);
         progress = findViewById(R.id.progress);
         connectBtn = findViewById(R.id.connectBtn);
-        connectBtn.setVisibility(View.GONE);
-        tvCollecting.setVisibility(View.GONE);
+
         endTrailButton=findViewById(R.id.endTrailButton);
         Intent intent = getIntent();
         Bundle bd = intent.getExtras();
@@ -260,7 +261,7 @@ public class MainActivity extends AppCompatActivity implements
         if (permissions_ok) {
 
 
-            /*connectBtn.setOnClickListener(new View.OnClickListener() {
+            connectBtn.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
 
@@ -289,7 +290,7 @@ public class MainActivity extends AppCompatActivity implements
 
                 }
             });
-*/
+
         } else {
 
             Intent permissions = new Intent(MainActivity.this, PermissionsHandler.class);
@@ -310,34 +311,12 @@ public class MainActivity extends AppCompatActivity implements
 
     // Initializing Connector and connecting to Myo
     private void connectMyo() {
-        if (connector == null) connector = new MyoConnector(this);
-        connector.scan(5000, new MyoConnector.ScannerCallback() {
-            @Override
-            public void onScanFinished(List<Myo> scannedMyos) {
+        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        BluetoothDevice bt = bluetoothAdapter.getRemoteDevice("C4:EF:50:4D:29:BD");
 
-                Log.d(MYO_TAG, "Found " + scannedMyos.size() + " Myo: " + scannedMyos.toString());
-
-                if (scannedMyos.size() == 0) {
-                    Log.d(MYO_TAG, "Connection failed, cannot find adjacent Myo");
-
-                    MainActivity.this.runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            Toast.makeText(MainActivity.this, "Connection failed, cannot find any Myo devices",
-                                    Toast.LENGTH_SHORT).show();
-                        }
-                    });
-
-                    uiConnected(false);
-
-                } else {
-                    myo = scannedMyos.get(0);
-                    myo.addConnectionListener(MainActivity.this);
-                    myo.connect();
-
-                }
-            }
-        });
+        myo = new Myo(getApplicationContext(), bt);
+        myo.addConnectionListener(MainActivity.this);
+        myo.connect();
     }
 
     // Disconnecting from Myo
@@ -381,10 +360,6 @@ public class MainActivity extends AppCompatActivity implements
             myo.removeConnectionListener(this);
             myo = null;
         }
-
-        if (connector != null) {
-            connector = null;
-        }
     }
 
     @Override
@@ -393,7 +368,14 @@ public class MainActivity extends AppCompatActivity implements
         if (state == BaseMyo.ConnectionState.CONNECTED) {
             Log.d(MYO_TAG, "STATE CONNECTED");
 
-            //Applying settings to connected Myo
+            // Applying settings to connected Myo
+            // First run does not work
+            myo.setConnectionSpeed(BaseMyo.ConnectionSpeed.HIGH);
+            myo.writeSleepMode(MyoCmds.SleepMode.NEVER,null);
+            myo.writeUnlock(MyoCmds.UnlockType.HOLD, null);
+            myo.writeMode(MyoCmds.EmgMode.FILTERED, MyoCmds.ImuMode.RAW, MyoCmds.ClassifierMode.DISABLED,null);
+
+            // Second run makes actual changes
             myo.setConnectionSpeed(BaseMyo.ConnectionSpeed.HIGH);
             myo.writeSleepMode(MyoCmds.SleepMode.NEVER, new Myo.MyoCommandCallback() {
                 @Override
@@ -425,6 +407,7 @@ public class MainActivity extends AppCompatActivity implements
                     uiConnected(true);
                 }
             });
+
         }
 
         if (state == BaseMyo.ConnectionState.DISCONNECTED) {
@@ -432,7 +415,6 @@ public class MainActivity extends AppCompatActivity implements
             Log.d(MYO_TAG, "Disconnected from Myo: " + baseMyo.toString());
 
             uiConnected(false);
-
             removeValues();
         }
 
