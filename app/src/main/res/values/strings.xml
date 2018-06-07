@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Myo UBISS18</string>
+    <string name="app_name">Walk the line</string>
     <string name="title_activity_data_collection">DataCollection</string>
     <string-array name="gender">
         <item>Female</item>
