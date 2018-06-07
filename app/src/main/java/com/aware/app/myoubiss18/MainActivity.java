@@ -110,7 +110,9 @@ public class MainActivity extends AppCompatActivity implements
         @Override
         protected void onPostExecute(Void aVoid) {
             super.onPostExecute(aVoid);
+            disconnectMyo();
             finish();
+
         }
 
         @Override
