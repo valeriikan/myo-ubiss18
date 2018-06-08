@@ -7,12 +7,14 @@ from ml.data import trials
 from ml.trial import Trial
 from ml.svm import model
 
+clf = model(trials)
+
+
 class Prediction(webapp2.RequestHandler):
     def post(self):
         data = json.loads(self.request.body)
         t = Trial(data)
 
-        clf = model(trials)
         res = clf.predcit(t.X())
 
         if res < 0:
