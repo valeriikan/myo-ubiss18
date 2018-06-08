@@ -10,7 +10,7 @@ from ml.svm import model
 clf = model(trials)
 
 
-app = Flask()
+app = Flask(__name__)
 
 @app.route('/prediction', methods = ['POST'])
 def prediction():
