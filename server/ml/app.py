@@ -12,6 +12,8 @@ clf = model(trials)
 
 class Prediction(webapp2.RequestHandler):
     def post(self):
+        print "/prediction"
+
         data = json.loads(self.request.body)
         t = Trial(data)
 
@@ -28,7 +30,10 @@ class Prediction(webapp2.RequestHandler):
 
 
 class Root(webapp2.RequestHandler):
+
     def get(self):
+        print "/"
+
         self.response.write("hej")
 
 
