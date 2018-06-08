@@ -10,6 +10,8 @@ from ml.svm import model
 clf = model(trials)
 
 
+app = Flask()
+
 @app.route('/prediction', methods = ['POST'])
 def prediction():
     print "/prediction"
@@ -25,7 +27,7 @@ def prediction():
     return str(res)
 
 
-app = Flask()
+
 
 
 @app.route('/')
