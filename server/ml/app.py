@@ -27,8 +27,14 @@ class Prediction(webapp2.RequestHandler):
         self.response.write(str(res))
 
 
+class Root(webapp2.RequestHandler):
+    def get(self):
+        self.response.write("hej")
+
+
 app = webapp2.WSGIApplication([
-    ("/prediction", Prediction)
+    ("/prediction", Prediction),
+    ("/", Root),
 ])
 
 
