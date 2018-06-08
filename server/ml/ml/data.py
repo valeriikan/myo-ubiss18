@@ -13,7 +13,6 @@ with open(folder + '/../data.json') as json_data:
 
         try:
             t = Trial(obj)
-            print "!",t.alcohol.units
         except MyException:
             continue 
 
@@ -29,8 +28,3 @@ for t in trials:
     if t.participant_id not in done:
         done_obj.append(t)
         done.append(t.participant_id)
-
-
-print [d.gender for d in done_obj]
-print len(trials)
-print [t.y() for t in trials]
